@@ -703,9 +703,8 @@ class WSHandler:
                 if not already_subscribed:
                     event_bus.subscribe_all(runtime_event_callback)
         except Exception:
-            logger.debug(
+            logger.opt(exception=True).debug(
                 f"Failed to wire UI callbacks for project engine {getattr(engine, 'project_id', None)!r}",
-                exc_info=True,
             )
 
     @staticmethod
@@ -823,7 +822,7 @@ class WSHandler:
         try:
             summary = await store.reset_orphan_running_tasks(lease_seconds=lease_seconds)
         except Exception:
-            logger.warning("heal_orphan_tasks_on_boot: reset_orphan_running_tasks failed", exc_info=True)
+            logger.opt(exception=True).warning("heal_orphan_tasks_on_boot: reset_orphan_running_tasks failed")
             return
         reset_count = summary.get("statuses_reset", 0)
         locks_cleared = summary.get("locks_cleared", 0)
@@ -861,9 +860,8 @@ class WSHandler:
             try:
                 still_ours = await store.renew_task_lock(task_id)
             except Exception:
-                logger.debug(
+                logger.opt(exception=True).debug(
                     f"Heartbeat (initial) renew_task_lock failed for {task_id}",
-                    exc_info=True,
                 )
                 still_ours = True
             if not still_ours:
@@ -873,9 +871,8 @@ class WSHandler:
                 try:
                     still_ours = await store.renew_task_lock(task_id)
                 except Exception:
-                    logger.debug(
+                    logger.opt(exception=True).debug(
                         f"Heartbeat renew_task_lock failed for {task_id}",
-                        exc_info=True,
                     )
                     continue
                 if not still_ours:
@@ -3165,7 +3162,7 @@ class WSHandler:
                     except Exception:
                         pass
                 else:
-                    logger.error(f"WS handler error for {msg_type}: {type(e).__name__}: {e!r}", exc_info=True)
+                    logger.opt(exception=True).error(f"WS handler error for {msg_type}: {type(e).__name__}: {e!r}")
                     try:
                         await self._send_ack(ws, ok=False, error=str(e) or type(e).__name__, action=msg_type)
                     except Exception:
@@ -3238,16 +3235,14 @@ class WSHandler:
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                logger.warning(
+                logger.opt(exception=True).warning(
                     f"Project index sent, but snapshot refresh failed for {project_id}: {type(exc).__name__}: {exc!r}",
-                    exc_info=True,
                 )
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            logger.error(
+            logger.opt(exception=True).error(
                 f"Failed to build project index for {project_id}: {type(exc).__name__}: {exc!r}",
-                exc_info=True,
             )
             if send_error_ack and self._client_active_project_id(ws) == project_id:
                 await self._send_ack(
@@ -3288,7 +3283,7 @@ class WSHandler:
         except asyncio.CancelledError:
             raise
         except Exception:
-            logger.warning("Initial websocket collab_sync push failed", exc_info=True)
+            logger.opt(exception=True).warning("Initial websocket collab_sync push failed")
         try:
             org_info = await self._build_org_info_payload()
             if self._client_active_project_id(ws) == project_id:
@@ -3296,7 +3291,7 @@ class WSHandler:
         except asyncio.CancelledError:
             raise
         except Exception:
-            logger.warning("Initial websocket org_info push failed", exc_info=True)
+            logger.opt(exception=True).warning("Initial websocket org_info push failed")
 
     async def _handle_collab_sync(self, ws: Any, data: dict) -> None:
         engine, project_id = await self._engine_for_request(data)
@@ -3457,7 +3452,7 @@ class WSHandler:
                     event_adapter=self.event_adapter,
                 )
             except Exception:
-                logger.warning("Failed to load company kanban projection for kanban_switch_view", exc_info=True)
+                logger.opt(exception=True).warning("Failed to load company kanban projection for kanban_switch_view")
         if self._exec_mode in {"company", "org", "custom"} and not company_columns:
             company_boards = [{
                 "board_id": project_id,
@@ -4127,7 +4122,7 @@ class WSHandler:
                 if not bg_task.done():
                     bg_task.cancel()
             except Exception:
-                logger.debug(f"Failed to cancel background task for {task_id}", exc_info=True)
+                logger.opt(exception=True).debug(f"Failed to cancel background task for {task_id}")
 
     @staticmethod
     def _is_ws_disconnect_error(exc: BaseException) -> bool:
@@ -4375,7 +4370,7 @@ class WSHandler:
             return
         exc = task.exception()
         if exc is not None:
-            logger.error(f"Background task failed: {exc}", exc_info=exc)
+            logger.opt(exception=exc).error(f"Background task failed: {exc}")
             # Notify frontend for session tasks so UI doesn't stay stuck on "thinking"
             context = self._task_bg_context.get(task) or {}
             task_id = self._find_task_id_for_bg_task(task)
@@ -4604,7 +4599,7 @@ class WSHandler:
                                     name=f"task-heartbeat:{task_id}",
                                 )
                         except Exception:
-                            logger.debug("failed to mark run_task company runtime running", exc_info=True)
+                            logger.opt(exception=True).debug("failed to mark run_task company runtime running")
                     response = await engine.process_message(
                         content,
                         project_id=pid,
@@ -4642,9 +4637,9 @@ class WSHandler:
                         idle_target = await self._resolve_company_runtime_target(task_id, engine=engine)
                         await self._set_company_runtime_control(idle_target or company_runtime_target, state="idle")
                     except Exception:
-                        logger.debug("failed to mark run_task company runtime idle", exc_info=True)
+                        logger.opt(exception=True).debug("failed to mark run_task company runtime idle")
         except Exception as e:
-            logger.error(f"Task execution error: {e}", exc_info=True)
+            logger.opt(exception=True).error(f"Task execution error: {e}")
             # Broadcast: task failed (stays in in-progress, user can retry)
             if task_id:
                 await self.broadcast({"type": "board_task_status_changed", "payload": {
@@ -4655,7 +4650,7 @@ class WSHandler:
                         failed_target = await self._resolve_company_runtime_target(task_id, engine=engine)
                         await self._set_company_runtime_control(failed_target or company_runtime_target, state="idle")
                     except Exception:
-                        logger.debug("failed to clear run_task company runtime after error", exc_info=True)
+                        logger.opt(exception=True).debug("failed to clear run_task company runtime after error")
             err_meta: dict[str, Any] = {}
             if task_id:
                 err_meta["task_id"] = task_id
@@ -4685,7 +4680,7 @@ class WSHandler:
                 )
                 await self.broadcast({"type": "collab_sync_push", "payload": collab})
             except Exception:
-                logger.warning("Post-run collab_sync broadcast failed (non-fatal)", exc_info=True)
+                logger.opt(exception=True).warning("Post-run collab_sync broadcast failed (non-fatal)")
 
     async def _mirror_agent_message(
         self,
@@ -4846,9 +4841,8 @@ class WSHandler:
                 project_id=project_id,
             )
         except Exception:
-            logger.debug(
+            logger.opt(exception=True).debug(
                 f"Failed to update human escalation checkpoint status for {normalized_escalation_id}",
-                exc_info=True,
             )
             return None
         if updated is not None:
@@ -4908,9 +4902,8 @@ class WSHandler:
                 project_id=project_id,
             )
         except Exception:
-            logger.debug(
+            logger.opt(exception=True).debug(
                 f"Failed to load unresolved human escalation cards for {channel_id}",
-                exc_info=True,
             )
             return []
 
@@ -4955,9 +4948,8 @@ class WSHandler:
         try:
             cards = await getter(channel_id, project_id=project_id)
         except Exception:
-            logger.debug(
+            logger.opt(exception=True).debug(
                 f"Failed to load unresolved execution checkpoint cards for {channel_id}",
-                exc_info=True,
             )
             return []
 
@@ -4990,9 +4982,8 @@ class WSHandler:
                     project_id=project_id,
                 )
             except Exception:
-                logger.debug(
+                logger.opt(exception=True).debug(
                     f"Failed to reconcile execution checkpoint card {checkpoint_id}",
-                    exc_info=True,
                 )
                 continue
             if updated is not None:
@@ -5102,7 +5093,7 @@ class WSHandler:
                     project_id=project_id,
                 )
         except Exception:
-            logger.debug(f"session_detail: transcript page load failed for {task_id}", exc_info=True)
+            logger.opt(exception=True).debug(f"session_detail: transcript page load failed for {task_id}")
             transcript_total_count = 0
             transcript_has_more = False
 
@@ -5183,14 +5174,14 @@ class WSHandler:
             try:
                 project_tasks = await store.get_tasks(project_id=project_id)
             except Exception:
-                logger.debug("session_detail: failed to load project tasks for runtime control", exc_info=True)
+                logger.opt(exception=True).debug("session_detail: failed to load project tasks for runtime control")
                 project_tasks = [task]
         try:
             runtime_control_meta = (
                 await _build_company_runtime_control_by_task(run_engine, project_tasks, project_id)
             ).get(task_id, {})
         except Exception:
-            logger.debug("session_detail: failed to build runtime control payload", exc_info=True)
+            logger.opt(exception=True).debug("session_detail: failed to build runtime control payload")
             runtime_control_meta = {}
         runtime_meta = dict(task_meta.get("runtime_v2", {}) or {})
         member_session_meta = dict(task_meta.get("member_session_state", {}) or {})
@@ -6022,7 +6013,7 @@ class WSHandler:
             try:
                 await store.save_task(task)
             except Exception:
-                logger.debug("failed to mark company runtime stop state", exc_info=True)
+                logger.opt(exception=True).debug("failed to mark company runtime stop state")
 
     async def _clear_company_runtime_stop_state(
         self,
@@ -6060,7 +6051,7 @@ class WSHandler:
             try:
                 await store.save_task(task)
             except Exception:
-                logger.debug("failed to clear company runtime stop state", exc_info=True)
+                logger.opt(exception=True).debug("failed to clear company runtime stop state")
 
     async def _finalize_company_runtime_stop(self, target: dict[str, Any], *, stop_intent_id: str) -> None:
         runtime_engine = target.get("engine") or self.engine
@@ -6081,7 +6072,7 @@ class WSHandler:
                 stop_intent_id=stop_intent_id,
             )
         except Exception:
-            logger.warning(f"suspend_company_runtime failed for {origin_task_id}", exc_info=True)
+            logger.opt(exception=True).warning(f"suspend_company_runtime failed for {origin_task_id}")
 
         if suspended is not None:
             for candidate in list(suspended.get("task_ids", []) or []):
@@ -6101,7 +6092,7 @@ class WSHandler:
                     stop_intent_id=stop_intent_id,
                 )
             except Exception:
-                logger.debug("failed to mark company runtime fully suspended", exc_info=True)
+                logger.opt(exception=True).debug("failed to mark company runtime fully suspended")
             try:
                 await self._set_company_runtime_control(
                     target,
@@ -6110,7 +6101,7 @@ class WSHandler:
                     stop_intent_id=stop_intent_id,
                 )
             except Exception:
-                logger.debug("failed to broadcast company runtime suspended state", exc_info=True)
+                logger.opt(exception=True).debug("failed to broadcast company runtime suspended state")
             channel_id = f"session:{origin_task_id or target.get('parent_task_id', '')}"
             pid = self._normalize_project_id(getattr(runtime_engine, "project_id", None))
             try:
@@ -6130,12 +6121,12 @@ class WSHandler:
                 )
                 await self.broadcast({"type": "session_message", "payload": msg})
             except Exception:
-                logger.warning(f"Failed to insert suspend message for {origin_task_id}", exc_info=True)
+                logger.opt(exception=True).warning(f"Failed to insert suspend message for {origin_task_id}")
         else:
             try:
                 await self._clear_company_runtime_stop_state(target, stop_intent_id=stop_intent_id)
             except Exception:
-                logger.debug("failed to clear company runtime stop state after suspend failure", exc_info=True)
+                logger.opt(exception=True).debug("failed to clear company runtime stop state after suspend failure")
             try:
                 await self._set_company_runtime_control(
                     target,
@@ -6160,7 +6151,7 @@ class WSHandler:
             try:
                 task = await store.get_task(task_id)
             except Exception:
-                logger.debug(f"Failed to load task for stop: {task_id}", exc_info=True)
+                logger.opt(exception=True).debug(f"Failed to load task for stop: {task_id}")
             if task is None:
                 await self._send_ack(ws, ok=False, error="task_not_found", project_id=run_project_id, task_id=task_id)
                 return
@@ -6170,7 +6161,7 @@ class WSHandler:
             try:
                 target = await self._resolve_company_runtime_target(task_id, engine=run_engine)
             except Exception:
-                logger.warning(f"failed to resolve company runtime stop target for {task_id}", exc_info=True)
+                logger.opt(exception=True).warning(f"failed to resolve company runtime stop target for {task_id}")
                 target = None
             if target is not None:
                 parent_session_id = str(target.get("parent_session_id", "") or "").strip()
@@ -6178,7 +6169,7 @@ class WSHandler:
                 try:
                     existing_checkpoint = await run_engine.get_pending_company_runtime_suspend_checkpoint(parent_session_id)
                 except Exception:
-                    logger.debug("failed to check existing company suspend checkpoint", exc_info=True)
+                    logger.opt(exception=True).debug("failed to check existing company suspend checkpoint")
                 existing_intent = self._company_stop_intents.get(parent_session_id)
                 existing_finalizer = self._company_stop_finalize_tasks.get(parent_session_id)
                 if existing_checkpoint is not None:
@@ -6227,7 +6218,7 @@ class WSHandler:
         try:
             all_task_ids = await self._cancel_task_tree(task_id, preserve_history=True, store=store)
         except Exception:
-            logger.warning(f"_cancel_task_tree failed for {task_id}", exc_info=True)
+            logger.opt(exception=True).warning(f"_cancel_task_tree failed for {task_id}")
             all_task_ids = [task_id]
         self._stop_requested_task_ids.update(all_task_ids)
 
@@ -6257,7 +6248,7 @@ class WSHandler:
                     stop_payload["agent_id"] = resolved_agent
                 await self.broadcast({"type": "agent_runtime_update", "payload": stop_payload})
             except Exception:
-                logger.warning(f"Failed to broadcast stop status for {tid}", exc_info=True)
+                logger.opt(exception=True).warning(f"Failed to broadcast stop status for {tid}")
 
         # Insert system message (only for the primary task — children are internal)
         channel_id = f"session:{task_id}"
@@ -6273,7 +6264,7 @@ class WSHandler:
             )
             await self.broadcast({"type": "session_message", "payload": msg})
         except Exception:
-            logger.warning(f"Failed to insert stop message for {task_id}", exc_info=True)
+            logger.opt(exception=True).warning(f"Failed to insert stop message for {task_id}")
         await self._send_ack(ws, ok=True)
 
     async def _handle_session_resume(self, ws: Any, data: dict) -> None:
@@ -6298,7 +6289,7 @@ class WSHandler:
             try:
                 task = await run_engine.store.get_task(task_id)
             except Exception:
-                logger.warning(f"session_resume: get_task failed for {task_id}", exc_info=True)
+                logger.opt(exception=True).warning(f"session_resume: get_task failed for {task_id}")
             if task is None:
                 await self._send_ack(ws, ok=False, error="task_not_found", project_id=run_project_id, task_id=task_id)
                 return
@@ -6311,7 +6302,7 @@ class WSHandler:
             try:
                 target = await self._resolve_company_runtime_target(task_id, engine=run_engine)
             except Exception:
-                logger.warning(f"session_resume: failed to resolve company runtime target for {task_id}", exc_info=True)
+                logger.opt(exception=True).warning(f"session_resume: failed to resolve company runtime target for {task_id}")
                 target = None
             if target is not None:
                 parent_session_id = str(target.get("parent_session_id", "") or "").strip()
@@ -6325,12 +6316,12 @@ class WSHandler:
                         await self._send_ack(ws, ok=False, error="stop_finalize_in_progress")
                         return
                     except Exception:
-                        logger.debug("session_resume: stop finalizer ended with error", exc_info=True)
+                        logger.opt(exception=True).debug("session_resume: stop finalizer ended with error")
                 self._company_stop_intents.pop(parent_session_id, None)
                 try:
                     await self._set_company_runtime_control(target, state="resuming")
                 except Exception:
-                    logger.debug("session_resume: failed to broadcast resuming state", exc_info=True)
+                    logger.opt(exception=True).debug("session_resume: failed to broadcast resuming state")
         if not session_id:
             await self._send_ack(ws, ok=False, error="session_not_found")
             return
@@ -6373,7 +6364,7 @@ class WSHandler:
             except TypeError:
                 checkpoints = await getter(project_id)
             except Exception:
-                logger.debug("failed to list checkpoints for explicit reply routing", exc_info=True)
+                logger.opt(exception=True).debug("failed to list checkpoints for explicit reply routing")
                 checkpoints = []
             for checkpoint in list(checkpoints or []):
                 if str(getattr(checkpoint, "checkpoint_id", "") or "").strip() != normalized_checkpoint_id:
@@ -6391,7 +6382,7 @@ class WSHandler:
                 maybe_checkpoint = direct_lookup(normalized_checkpoint_id)
                 checkpoint = await maybe_checkpoint if inspect.isawaitable(maybe_checkpoint) else maybe_checkpoint
             except Exception:
-                logger.debug("failed to load checkpoint by id for explicit reply routing", exc_info=True)
+                logger.opt(exception=True).debug("failed to load checkpoint by id for explicit reply routing")
                 checkpoint = None
             if checkpoint is not None:
                 if str(getattr(checkpoint, "checkpoint_id", "") or "").strip() != normalized_checkpoint_id:
@@ -6428,7 +6419,7 @@ class WSHandler:
             try:
                 target = await self._resolve_company_runtime_target(candidate_task_id, engine=engine)
             except Exception:
-                logger.debug("failed to resolve company runtime target for delivery feedback", exc_info=True)
+                logger.opt(exception=True).debug("failed to resolve company runtime target for delivery feedback")
                 target = None
             if not target:
                 continue
@@ -6511,7 +6502,7 @@ class WSHandler:
                 if visible is True:
                     return True
             except Exception:
-                logger.debug("failed to evaluate delivery feedback checkpoint visibility", exc_info=True)
+                logger.opt(exception=True).debug("failed to evaluate delivery feedback checkpoint visibility")
 
         checkpoint_session_id = str(getattr(checkpoint, "session_id", "") or "").strip()
         if checkpoint_session_id == requested_session_id:
@@ -6539,7 +6530,7 @@ class WSHandler:
             try:
                 waiting_task = await get_task(waiting_task_id)
             except Exception:
-                logger.debug("failed to load waiting task for delivery feedback visibility", exc_info=True)
+                logger.opt(exception=True).debug("failed to load waiting task for delivery feedback visibility")
                 waiting_task = None
             if waiting_task is not None:
                 waiting_session_id = str(getattr(waiting_task, "session_id", "") or "").strip()
@@ -6690,10 +6681,9 @@ class WSHandler:
                 created_at=self._checkpoint_created_timestamp(checkpoint),
             )
         except Exception:
-            logger.debug(
+            logger.opt(exception=True).debug(
                 "failed to insert terminal synthetic checkpoint card; retrying status update: checkpoint_id={}",
                 normalized_checkpoint_id,
-                exc_info=True,
             )
             updated = await self.chat_store.update_checkpoint_status(
                 normalized_checkpoint_id,
@@ -6736,7 +6726,7 @@ class WSHandler:
                 checkpoint_types=["company_delivery_feedback"],
             )
         except Exception:
-            logger.debug("failed to list pending delivery feedback checkpoints", exc_info=True)
+            logger.opt(exception=True).debug("failed to list pending delivery feedback checkpoints")
             return []
 
         superseded_ids: list[str] = []
@@ -6802,7 +6792,7 @@ class WSHandler:
                             waiting_task.status = TaskStatus.DONE
                             await store.save_task(waiting_task)
             except Exception:
-                logger.debug("failed to mark delivery feedback checkpoint superseded", exc_info=True)
+                logger.opt(exception=True).debug("failed to mark delivery feedback checkpoint superseded")
                 continue
 
             superseded_ids.append(checkpoint_id)
@@ -7014,7 +7004,7 @@ class WSHandler:
             try:
                 waiting_task = await store.get_task(waiting_task_id)
             except Exception:
-                logger.debug("failed to load delivery feedback waiting task", exc_info=True)
+                logger.opt(exception=True).debug("failed to load delivery feedback waiting task")
         target = await self._company_delivery_feedback_parent_target(
             task_id=task_id,
             waiting_task_id=waiting_task_id,
@@ -7082,7 +7072,7 @@ class WSHandler:
                     try:
                         parent_task = await run_engine.store.get_task(parent_task_id)
                     except Exception:
-                        logger.debug("failed to load parent task for delivery feedback reply", exc_info=True)
+                        logger.opt(exception=True).debug("failed to load parent task for delivery feedback reply")
                 session_exec_mode = self._normalize_session_exec_mode(self._exec_mode)
                 session_company_profile = self._normalize_session_company_profile(self._company_profile)
                 session_org_id = ""
@@ -7163,7 +7153,7 @@ class WSHandler:
                         )
                         await self.broadcast({"type": "session_message", "payload": msg})
                     except Exception:
-                        logger.debug("failed to write delivery feedback reply error", exc_info=True)
+                        logger.opt(exception=True).debug("failed to write delivery feedback reply error")
             finally:
                 if self._chat_store_is_ready(self.chat_store):
                     await self._flush_progress(parent_task_id, project_id=pid)
@@ -7207,7 +7197,7 @@ class WSHandler:
         try:
             target = await self._resolve_company_runtime_target(task_id, engine=run_engine)
         except Exception:
-            logger.debug("failed to resolve company suspend reply target", exc_info=True)
+            logger.opt(exception=True).debug("failed to resolve company suspend reply target")
             return False
         if target is None:
             return False
@@ -7231,7 +7221,7 @@ class WSHandler:
                 await self.broadcast({"type": "session_message", "payload": helper})
                 return True
             except Exception:
-                logger.debug("company stop finalizer failed before follow-up routing", exc_info=True)
+                logger.opt(exception=True).debug("company stop finalizer failed before follow-up routing")
 
         checkpoint = None
         get_checkpoint = getattr(run_engine, "get_active_company_runtime_suspend_checkpoint", None)
@@ -7239,7 +7229,7 @@ class WSHandler:
             try:
                 checkpoint = await get_checkpoint(parent_session_id)
             except Exception:
-                logger.debug("failed to load active company suspend checkpoint", exc_info=True)
+                logger.opt(exception=True).debug("failed to load active company suspend checkpoint")
         if checkpoint is None:
             return False
         if str(getattr(checkpoint, "status", "") or "").strip() != "pending":
@@ -7296,14 +7286,14 @@ class WSHandler:
                 try:
                     await self._set_company_runtime_control(target, state="resuming")
                 except Exception:
-                    logger.debug("failed to broadcast company suspend reply routing state", exc_info=True)
+                    logger.opt(exception=True).debug("failed to broadcast company suspend reply routing state")
 
                 parent_task = None
                 if self._store_is_ready(run_engine.store):
                     try:
                         parent_task = await run_engine.store.get_task(parent_task_id)
                     except Exception:
-                        logger.debug("failed to load parent task for company suspend reply", exc_info=True)
+                        logger.opt(exception=True).debug("failed to load parent task for company suspend reply")
                 session_exec_mode = self._normalize_session_exec_mode(self._exec_mode)
                 session_company_profile = self._normalize_session_company_profile(self._company_profile)
                 session_org_id = ""
@@ -7373,9 +7363,8 @@ class WSHandler:
                                     chat_exc,
                                 )
                             else:
-                                logger.debug(
+                                logger.opt(exception=True).debug(
                                     "Failed to write company suspend reply error message",
-                                    exc_info=True,
                                 )
             finally:
                 if self._chat_store_is_ready(self.chat_store):
@@ -7416,7 +7405,7 @@ class WSHandler:
                 inferred_ws = str(Path(comms_root).parent)
                 return _comms.resolve_layout(inferred_ws, project_id, session_id).root
         except Exception:
-            logger.debug(f"_resolve_task_comms_dir failed for task {getattr(task, 'id', '?')}", exc_info=True)
+            logger.opt(exception=True).debug(f"_resolve_task_comms_dir failed for task {getattr(task, 'id', '?')}")
         return None
 
     async def _handle_session_delete(self, ws: Any, data: dict) -> None:
@@ -7534,7 +7523,7 @@ class WSHandler:
                         metadata=assistant_turn_meta or None,
                     )
         except Exception as e:
-            logger.error(f"Dispatcher error, falling back to engine: {e}", exc_info=True)
+            logger.opt(exception=True).error(f"Dispatcher error, falling back to engine: {e}")
             process_kwargs = {
                 "session_id": session_id,
                 "attachment_refs": attachment_refs,
@@ -7568,7 +7557,7 @@ class WSHandler:
             try:
                 checkpoint = await direct_lookup(normalized_checkpoint_id)
             except Exception:
-                logger.debug("failed to load checkpoint by id from engine", exc_info=True)
+                logger.opt(exception=True).debug("failed to load checkpoint by id from engine")
         if checkpoint is None:
             store = getattr(engine, "store", None)
             getter = getattr(store, "get_execution_checkpoints", None)
@@ -7689,7 +7678,7 @@ class WSHandler:
                 broadcast_update=False,
             )
         except Exception:
-            logger.debug("failed to persist checkpoint card terminal state", exc_info=True)
+            logger.opt(exception=True).debug("failed to persist checkpoint card terminal state")
             return None
 
     async def _process_session_message(
@@ -7776,7 +7765,7 @@ class WSHandler:
                     company_runtime_target = await self._resolve_company_runtime_target(task_id, engine=engine)
                     await self._set_company_runtime_control(company_runtime_target, state="running")
                 except Exception:
-                    logger.debug("failed to mark company session runtime running", exc_info=True)
+                    logger.opt(exception=True).debug("failed to mark company session runtime running")
             try:
                 engine_mode, company_profile = self._resolve_engine_mode(
                     session_exec_mode,
@@ -7856,7 +7845,7 @@ class WSHandler:
                         idle_target = await self._resolve_company_runtime_target(task_id, engine=engine)
                         await self._set_company_runtime_control(idle_target or company_runtime_target, state="idle")
                     except Exception:
-                        logger.debug("failed to mark company session runtime idle", exc_info=True)
+                        logger.opt(exception=True).debug("failed to mark company session runtime idle")
             except asyncio.CancelledError:
                 cancelled_ids = await self._mark_task_tree_cancelled_if_active(task_id, store=engine.store)
                 for cancelled_id in cancelled_ids:
@@ -7891,7 +7880,7 @@ class WSHandler:
                         failed_target = await self._resolve_company_runtime_target(task_id, engine=engine)
                         await self._set_company_runtime_control(failed_target or company_runtime_target, state="idle")
                     except Exception:
-                        logger.debug("failed to clear company session runtime after error", exc_info=True)
+                        logger.opt(exception=True).debug("failed to clear company session runtime after error")
             finally:
                 # Stop heartbeat before anything else so we don't keep bumping
                 # execution_locked_at for a task we've just finished handling.
@@ -8497,7 +8486,7 @@ class WSHandler:
             )
             await self.broadcast({"type": "session_message", "payload": msg})
         except Exception as e:
-            logger.error(f"Secretary processing error: {e}", exc_info=True)
+            logger.opt(exception=True).error(f"Secretary processing error: {e}")
             msg = await self.chat_store.insert_message(
                 channel_id=secretary_channel,
                 sender="system",
@@ -8547,9 +8536,8 @@ class WSHandler:
             await self._send_service_error(ws, exc, action="switch_project")
             return
         except Exception as exc:
-            logger.error(
+            logger.opt(exception=True).error(
                 f"Failed to prepare project switch for {new_id}: {type(exc).__name__}: {exc!r}",
-                exc_info=True,
             )
             await self._send_ack(
                 ws,
@@ -8831,7 +8819,7 @@ class WSHandler:
                     list(getattr(org, "employees", []) or []),
                 )
             except Exception:
-                logger.debug("Failed to write employee registry for active org", exc_info=True)
+                logger.opt(exception=True).debug("Failed to write employee registry for active org")
         payload = build_org_config_payload_from_config(
             config,
             organization_id=organization_id,
@@ -9016,7 +9004,7 @@ class WSHandler:
                     list(validated_config.org.employees),
                 )
             except Exception:
-                logger.debug("Failed to load employee registry for applied org config", exc_info=True)
+                logger.opt(exception=True).debug("Failed to load employee registry for applied org config")
             roles_before = {r.id for r in existing.org.roles}
             roles_after = {r.id for r in validated_config.org.roles}
             employees_before = len(existing.org.employees)

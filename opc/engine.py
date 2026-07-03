@@ -1028,7 +1028,7 @@ class OPCEngine:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except Exception:
-            logger.debug("Failed to load project company staffing defaults", exc_info=True)
+            logger.opt(exception=True).debug("Failed to load project company staffing defaults")
             return {}
         scopes = dict(data.get("scopes", {}) or {}) if isinstance(data, dict) else {}
         return dict(scopes.get(self._company_staffing_scope_key(decision, company_profile=company_profile), {}) or {})
@@ -1549,7 +1549,7 @@ class OPCEngine:
         try:
             tasks = await self.store.get_tasks(project_id=self.project_id or "default")
         except Exception:
-            logger.debug("failed to inspect company tasks before recording top-level reply", exc_info=True)
+            logger.opt(exception=True).debug("failed to inspect company tasks before recording top-level reply")
             return marker_fallback
         session_key = str(session_id or "").strip()
         for task in tasks:
@@ -5379,10 +5379,9 @@ class OPCEngine:
                             claimed_by_seat_id="",
                         )
                     except Exception:
-                        logger.debug(
+                        logger.opt(exception=True).debug(
                             "company runtime suspend: hold/release failed for %s",
                             work_item_id,
-                            exc_info=True,
                         )
                     else:
                         task.metadata["dispatch_hold"] = "company_runtime_suspended"
@@ -5402,7 +5401,7 @@ class OPCEngine:
                         }
                         await self.store.save_external_session(latest_session)
                 except Exception:
-                    logger.debug("company runtime suspend: external session status update failed", exc_info=True)
+                    logger.opt(exception=True).debug("company runtime suspend: external session status update failed")
 
             fresh = await self.store.get_task(task.id)
             target = fresh or task
@@ -5434,7 +5433,7 @@ class OPCEngine:
                         },
                     )
                 except Exception:
-                    logger.debug("company runtime suspend: role session idle update failed", exc_info=True)
+                    logger.opt(exception=True).debug("company runtime suspend: role session idle update failed")
         return affected
 
     async def suspend_company_runtime(
@@ -5618,7 +5617,7 @@ class OPCEngine:
                         if work_item_id:
                             work_item_by_id[work_item_id] = item
                 except Exception:
-                    logger.debug("company runtime resume: failed to load run work items", exc_info=True)
+                    logger.opt(exception=True).debug("company runtime resume: failed to load run work items")
         for task in tasks:
             if resume_task_ids is not None and task.id not in resume_task_ids:
                 refreshed.append(task)
@@ -5759,7 +5758,7 @@ class OPCEngine:
                             claimed_by_seat_id="",
                         )
                     except Exception:
-                        logger.debug("company runtime resume: phase restore/hold clear failed", exc_info=True)
+                        logger.opt(exception=True).debug("company runtime resume: phase restore/hold clear failed")
                         try:
                             await update_work_item(
                                 work_item_id,
@@ -5772,7 +5771,7 @@ class OPCEngine:
                                 claimed_by_seat_id="",
                             )
                         except Exception:
-                            logger.debug("company runtime resume: fallback hold clear failed", exc_info=True)
+                            logger.opt(exception=True).debug("company runtime resume: fallback hold clear failed")
 
             role_session_id = str(task.metadata.get("delegation_role_session_id", "") or "").strip()
             if role_session_id and callable(update_role_session):
@@ -5789,7 +5788,7 @@ class OPCEngine:
                         },
                     )
                 except Exception:
-                    logger.debug("company runtime resume: role session update failed", exc_info=True)
+                    logger.opt(exception=True).debug("company runtime resume: role session update failed")
             await self.store.save_task(task)
             fresh = await self.store.get_task(task.id)
             refreshed.append(fresh or task)
@@ -6303,10 +6302,9 @@ class OPCEngine:
                 await self._save_company_feedback_followup_checkpoint(task, tasks, plan)
                 restored_checkpoint = True
             except Exception:
-                logger.debug(
+                logger.opt(exception=True).debug(
                     "Best-effort restore of human feedback checkpoint failed for task {}",
                     task.id,
-                    exc_info=True,
                 )
         if restored_checkpoint:
             task.metadata = dict(task.metadata or {})
@@ -7072,10 +7070,9 @@ class OPCEngine:
                     metadata_updates=work_item_updates,
                 )
             except Exception:
-                logger.debug(
+                logger.opt(exception=True).debug(
                     "failed to update closed delivery review work item metadata for {}",
                     work_item_id,
-                    exc_info=True,
                 )
         except TypeError:
             try:
@@ -7086,16 +7083,14 @@ class OPCEngine:
                     metadata_updates=work_item_updates,
                 )
             except Exception:
-                logger.debug(
+                logger.opt(exception=True).debug(
                     "failed to approve closed delivery review work item for {}",
                     work_item_id,
-                    exc_info=True,
                 )
         except Exception:
-            logger.debug(
+            logger.opt(exception=True).debug(
                 "failed to approve closed delivery review work item for {}",
                 work_item_id,
-                exc_info=True,
             )
 
     async def _terminalize_company_delivery_feedback_checkpoint(
@@ -7210,7 +7205,7 @@ class OPCEngine:
                 checkpoint_types=["company_delivery_feedback"],
             )
         except Exception:
-            logger.debug("failed to inspect pending delivery feedback checkpoints", exc_info=True)
+            logger.opt(exception=True).debug("failed to inspect pending delivery feedback checkpoints")
             pending = []
         pending_task_ids = {
             str(
@@ -7227,10 +7222,9 @@ class OPCEngine:
             try:
                 await self._save_company_feedback_followup_checkpoint(task, tasks, plan)
             except Exception:
-                logger.debug(
+                logger.opt(exception=True).debug(
                     "failed to restore missing delivery feedback checkpoint for task {}",
                     task.id,
-                    exc_info=True,
                 )
 
     @staticmethod
@@ -8293,7 +8287,7 @@ class OPCEngine:
                                 metadata_updates={"prompt_contract": target_contract},
                             )
                         except Exception:
-                            logger.debug("Best-effort external target prompt_contract update failed", exc_info=True)
+                            logger.opt(exception=True).debug("Best-effort external target prompt_contract update failed")
                 else:
                     target_contract = prompt_contract_from_work_item(
                         SimpleNamespace(
@@ -8335,7 +8329,7 @@ class OPCEngine:
                 if updated is not None:
                     work_metadata = dict(getattr(updated, "metadata", {}) or {})
             except Exception:
-                logger.debug("Best-effort external prompt_contract update failed", exc_info=True)
+                logger.opt(exception=True).debug("Best-effort external prompt_contract update failed")
                 work_metadata = {**work_metadata, **metadata_updates}
         else:
             work_metadata = {**work_metadata, **metadata_updates}
@@ -9230,7 +9224,7 @@ class OPCEngine:
         try:
             tasks = await self.store.get_tasks(project_id=self.project_id or "default")
         except Exception:
-            logger.debug("failed to load tasks while resolving company parent session", exc_info=True)
+            logger.opt(exception=True).debug("failed to load tasks while resolving company parent session")
             return ""
         for task in tasks:
             task_session_id = str(getattr(task, "session_id", "") or "").strip()
@@ -9313,9 +9307,9 @@ class OPCEngine:
                     if checkpoint is not None:
                         return checkpoint
                 except Exception:
-                    logger.debug("direct checkpoint lookup failed", exc_info=True)
+                    logger.opt(exception=True).debug("direct checkpoint lookup failed")
             except Exception:
-                logger.debug("direct checkpoint lookup failed", exc_info=True)
+                logger.opt(exception=True).debug("direct checkpoint lookup failed")
 
         listing_getter = getattr(self.store, "get_execution_checkpoints", None)
         if not callable(listing_getter):

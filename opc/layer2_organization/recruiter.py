@@ -404,7 +404,7 @@ class CompanyRecruiter:
             try:
                 final_decider_role_id = str(getter() or "").strip()
             except Exception:
-                logger.debug("failed to resolve final decider role for recruiter payload", exc_info=True)
+                logger.opt(exception=True).debug("failed to resolve final decider role for recruiter payload")
 
         return {
             "final_decider_role_id": final_decider_role_id,

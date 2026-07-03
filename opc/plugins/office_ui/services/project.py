@@ -77,7 +77,7 @@ class ProjectService:
                     if asyncio.iscoroutine(maybe):
                         await maybe
                 except Exception:
-                    logger.debug(f"Failed to close project store for {project_id}", exc_info=True)
+                    logger.opt(exception=True).debug(f"Failed to close project store for {project_id}")
 
     async def list(self, *, active_project_id: str | None = None) -> ServiceResult:
         active = active_project_id or self.context.active_engine_project_id()
@@ -247,7 +247,7 @@ class ProjectService:
                 try:
                     await active_engine.store.close()
                 except Exception:
-                    logger.debug("Failed to close active project store before delete", exc_info=True)
+                    logger.opt(exception=True).debug("Failed to close active project store before delete")
             shutil.rmtree(str(projects_dir), ignore_errors=True)
 
         workplace = self.context.project_workplace(project_id)
@@ -263,7 +263,7 @@ class ProjectService:
                     if asyncio.iscoroutine(maybe):
                         await maybe
                 except Exception:
-                    logger.debug(f"memory.delete_project failed for {project_id}", exc_info=True)
+                    logger.opt(exception=True).debug(f"memory.delete_project failed for {project_id}")
 
         events = [ServiceEvent("project_deleted", {"project_id": project_id})]
         payload: dict[str, Any] = {"project_id": project_id, "deleted_channels": deleted_channels}

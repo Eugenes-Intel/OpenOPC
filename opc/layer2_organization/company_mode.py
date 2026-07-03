@@ -3314,7 +3314,7 @@ class CompanyWorkItemExecutor:
                 try:
                     await self.store.save_task(task)
                 except Exception:
-                    logger.debug("Best-effort runtime Task projection sync failed", exc_info=True)
+                    logger.opt(exception=True).debug("Best-effort runtime Task projection sync failed")
 
     async def _refresh_ready_work_items(
         self,
@@ -3372,11 +3372,11 @@ class CompanyWorkItemExecutor:
         try:
             self._signal_dispatcher_wake()
         except Exception:
-            logger.debug("Best-effort dispatcher wake after dependency release failed", exc_info=True)
+            logger.opt(exception=True).debug("Best-effort dispatcher wake after dependency release failed")
         try:
             await self._notify_kanban_changed()
         except Exception:
-            logger.debug("Best-effort kanban notify after dependency release failed", exc_info=True)
+            logger.opt(exception=True).debug("Best-effort kanban notify after dependency release failed")
         run_id = str(work_items[0].run_id or "").strip()
         return await self.store.list_delegation_work_items(run_id)
 
@@ -4384,7 +4384,7 @@ class CompanyWorkItemExecutor:
                             },
                         )
                 except Exception:
-                    logger.debug("company runtime cancellation: failed session idle reset", exc_info=True)
+                    logger.opt(exception=True).debug("company runtime cancellation: failed session idle reset")
             for claimed_task in claimed_tasks:
                 if claimed_task.status in {TaskStatus.DONE, TaskStatus.FAILED, TaskStatus.CANCELLED}:
                     continue
@@ -4432,17 +4432,15 @@ class CompanyWorkItemExecutor:
                         claimed_task.metadata["dispatch_hold"] = "company_runtime_suspended"
                         claimed_task.metadata["suspended_phase"] = phase_value
                 except Exception:
-                    logger.debug(
+                    logger.opt(exception=True).debug(
                         "company runtime cancellation: failed suspend hold release",
-                        exc_info=True,
                     )
                 if self.save_task and self._store_is_ready(self.store):
                     try:
                         await self.save_task(claimed_task)
                     except Exception:
-                        logger.debug(
+                        logger.opt(exception=True).debug(
                             "company runtime cancellation: failed suspended task save",
-                            exc_info=True,
                         )
             raise
         finally:
@@ -4664,7 +4662,7 @@ class CompanyWorkItemExecutor:
         try:
             work_item = await self.store.get_delegation_work_item(work_item_id)
         except Exception:
-            logger.debug("work-item revision stale guard: failed to load work item", exc_info=True)
+            logger.opt(exception=True).debug("work-item revision stale guard: failed to load work item")
             return None
         if work_item is None:
             return None
@@ -5079,9 +5077,8 @@ class CompanyWorkItemExecutor:
                         task.metadata["suspended_phase"] = phase_value
                         task.status = task_status_for_phase(phase) if isinstance(phase, Phase) else task.status
                 except Exception:
-                    logger.debug(
+                    logger.opt(exception=True).debug(
                         "company runtime cancellation: failed to apply suspend hold",
-                        exc_info=True,
                     )
                 if self.save_task and self._store_is_ready(self.store):
                     await self.save_task(task)
@@ -5611,7 +5608,7 @@ class CompanyWorkItemExecutor:
                         },
                     )
                 except Exception:
-                    logger.debug("Best-effort close of orphan report card failed", exc_info=True)
+                    logger.opt(exception=True).debug("Best-effort close of orphan report card failed")
             return None
 
         # The report turn's prose IS the handoff. Try a structured parse
@@ -5646,7 +5643,7 @@ class CompanyWorkItemExecutor:
                         },
                     )
                 except Exception:
-                    logger.debug("Best-effort close of orphan report card failed", exc_info=True)
+                    logger.opt(exception=True).debug("Best-effort close of orphan report card failed")
             return None
 
         parent_metadata = dict(getattr(parent_item, "metadata", {}) or {})
@@ -5667,7 +5664,7 @@ class CompanyWorkItemExecutor:
                         },
                     )
                 except Exception:
-                    logger.debug("Best-effort close of non-reviewable report card failed", exc_info=True)
+                    logger.opt(exception=True).debug("Best-effort close of non-reviewable report card failed")
             await self._record_work_item_runtime_diagnostic(
                 code="report_parent_not_reviewable",
                 severity="info",
@@ -5761,9 +5758,8 @@ class CompanyWorkItemExecutor:
                         },
                     )
                 except Exception:
-                    logger.debug(
+                    logger.opt(exception=True).debug(
                         "report_done: failed to stamp worker_report on review card",
-                        exc_info=True,
                     )
         else:
             await self._record_work_item_runtime_diagnostic(
@@ -6508,7 +6504,7 @@ class CompanyWorkItemExecutor:
                 )
                 worker_metadata = {**worker_metadata, "prompt_contract": target_prompt_contract}
             except Exception:
-                logger.debug("Best-effort target prompt_contract snapshot update failed", exc_info=True)
+                logger.opt(exception=True).debug("Best-effort target prompt_contract snapshot update failed")
         review_prompt_contract = make_prompt_contract(
             task_brief=(
                 "Review the completed child deliverable and decide whether to "
@@ -6547,7 +6543,7 @@ class CompanyWorkItemExecutor:
                         },
                     )
                 except Exception:
-                    logger.debug("Best-effort in-flight review refresh failed", exc_info=True)
+                    logger.opt(exception=True).debug("Best-effort in-flight review refresh failed")
                     return existing_card
 
         attempt_no = self._next_review_attempt(worker_metadata)
@@ -6614,7 +6610,7 @@ class CompanyWorkItemExecutor:
         try:
             await self.store.save_delegation_work_item(review_work_item)
         except Exception:
-            logger.debug("Best-effort review work-item create failed", exc_info=True)
+            logger.opt(exception=True).debug("Best-effort review work-item create failed")
             return None
         # Persist the attempt counter on the worker so future calls can
         # locate the current review without scanning.
@@ -6624,7 +6620,7 @@ class CompanyWorkItemExecutor:
                 metadata_updates={"review_attempt_count": attempt_no},
             )
         except Exception:
-            logger.debug("Best-effort review_attempt_count update failed", exc_info=True)
+            logger.opt(exception=True).debug("Best-effort review_attempt_count update failed")
         return review_work_item
 
     async def _ensure_report_work_item_for_work_item(
@@ -6705,7 +6701,7 @@ class CompanyWorkItemExecutor:
                 )
                 worker_metadata = {**worker_metadata, "prompt_contract": target_prompt_contract}
             except Exception:
-                logger.debug("Best-effort target prompt_contract update before report failed", exc_info=True)
+                logger.opt(exception=True).debug("Best-effort target prompt_contract update before report failed")
         if worker_item is not None and not is_manager_reviewable_turn(worker_item):
             await self._record_work_item_runtime_diagnostic(
                 code="report_parent_not_reviewable",
@@ -6750,7 +6746,7 @@ class CompanyWorkItemExecutor:
                         },
                     )
                 except Exception:
-                    logger.debug("Best-effort in-flight report refresh failed", exc_info=True)
+                    logger.opt(exception=True).debug("Best-effort in-flight report refresh failed")
                 return existing_card
 
         attempt_no = self._next_report_attempt(worker_metadata)
@@ -6817,7 +6813,7 @@ class CompanyWorkItemExecutor:
         try:
             await self.store.save_delegation_work_item(report_work_item)
         except Exception:
-            logger.debug("Best-effort report work-item create failed", exc_info=True)
+            logger.opt(exception=True).debug("Best-effort report work-item create failed")
             return None
         try:
             await self.store.update_delegation_work_item(
@@ -6825,7 +6821,7 @@ class CompanyWorkItemExecutor:
                 metadata_updates={"report_attempt_count": attempt_no},
             )
         except Exception:
-            logger.debug("Best-effort report_attempt_count update failed", exc_info=True)
+            logger.opt(exception=True).debug("Best-effort report_attempt_count update failed")
         return report_work_item
 
     async def _finalize_review_work_item(self, review_task: Task) -> None:
@@ -6964,8 +6960,8 @@ class CompanyWorkItemExecutor:
                     },
                 )
             except Exception:
-                logger.debug(
-                    "Best-effort close of unparseable review card failed", exc_info=True
+                logger.opt(exception=True).debug(
+                    "Best-effort close of unparseable review card failed"
                 )
             await self._ack_lifecycle_inbox_for_review(
                 review_task=review_task,
@@ -7094,7 +7090,7 @@ class CompanyWorkItemExecutor:
                 },
             )
         except Exception:
-            logger.debug("Best-effort review work-item finalization failed", exc_info=True)
+            logger.opt(exception=True).debug("Best-effort review work-item finalization failed")
         await self._ack_lifecycle_inbox_for_review(
             review_task=review_task,
             review_work_item_id=review_work_item_id,
@@ -7108,7 +7104,7 @@ class CompanyWorkItemExecutor:
             try:
                 self._signal_dispatcher_wake()
             except Exception:
-                logger.debug("_signal_dispatcher_wake failed", exc_info=True)
+                logger.opt(exception=True).debug("_signal_dispatcher_wake failed")
         if child_phase == Phase.APPROVED:
             await self._refresh_delegation_dependents(review_task)
         await self._notify_kanban_changed()
@@ -7276,7 +7272,7 @@ class CompanyWorkItemExecutor:
                 task=review_task,
             )
         except Exception:
-            logger.debug("Best-effort lifecycle inbox cleanup after review failed", exc_info=True)
+            logger.opt(exception=True).debug("Best-effort lifecycle inbox cleanup after review failed")
 
     @staticmethod
     def _resolve_max_review_reworks(
@@ -7414,8 +7410,8 @@ class CompanyWorkItemExecutor:
                 },
             )
         except Exception:
-            logger.debug(
-                "verdict-parse-retry: closing prior review card failed", exc_info=True
+            logger.opt(exception=True).debug(
+                "verdict-parse-retry: closing prior review card failed"
             )
 
         completion_report = str(
@@ -7454,14 +7450,14 @@ class CompanyWorkItemExecutor:
                 },
             )
         except Exception:
-            logger.debug(
-                "verdict-parse-retry: extending new summary failed", exc_info=True
+            logger.opt(exception=True).debug(
+                "verdict-parse-retry: extending new summary failed"
             )
 
         try:
             self._signal_dispatcher_wake()
         except Exception:
-            logger.debug("verdict-parse-retry: dispatcher wake failed", exc_info=True)
+            logger.opt(exception=True).debug("verdict-parse-retry: dispatcher wake failed")
 
         logger.info(
             f"verdict-parse-retry spawned: child={target_work_item_id} "
@@ -7516,7 +7512,7 @@ class CompanyWorkItemExecutor:
                 },
             )
         except Exception:
-            logger.debug("Best-effort review work-item close failed", exc_info=True)
+            logger.opt(exception=True).debug("Best-effort review work-item close failed")
 
     @staticmethod
     def _review_feedback_version(metadata: dict[str, Any] | None) -> int:
@@ -9022,7 +9018,7 @@ class CompanyWorkItemExecutor:
                                 delivery_policy["requires_user_feedback"] = True
                         break
             except Exception:
-                logger.debug("Failed to read delivery policy from intake work-item plan", exc_info=True)
+                logger.opt(exception=True).debug("Failed to read delivery policy from intake work-item plan")
         # Owner-facing synthetic delivery cards are the stable handoff point
         # for follow-up directives. A projection-level false must not suppress
         # the human review card; review closure is an explicit runtime tool.
@@ -11031,7 +11027,7 @@ class CompanyWorkItemExecutor:
                 self._signal_dispatcher_wake()
                 await self._notify_kanban_changed()
         except Exception:
-            logger.debug("Best-effort follow-up dependency frontier refresh failed", exc_info=True)
+            logger.opt(exception=True).debug("Best-effort follow-up dependency frontier refresh failed")
         return created_dependency_ids
 
     def _capture_environment_manifest(self, task: Task, result: TaskResult) -> None:
@@ -12714,7 +12710,7 @@ class CompanyWorkItemExecutor:
         try:
             run = await self.store.get_delegation_run(run_id)
         except Exception:
-            logger.debug("Failed to load delegation run for owner review lifecycle update", exc_info=True)
+            logger.opt(exception=True).debug("Failed to load delegation run for owner review lifecycle update")
             return
         if run is None:
             return
@@ -12731,7 +12727,7 @@ class CompanyWorkItemExecutor:
         try:
             await self.store.save_delegation_run(run)
         except Exception:
-            logger.debug("Failed to save delegation run owner review lifecycle update", exc_info=True)
+            logger.opt(exception=True).debug("Failed to save delegation run owner review lifecycle update")
 
     async def _finalize_completed_work_item(self, task: Task) -> None:
         if self._is_authoritative_delivery_work_item(task):

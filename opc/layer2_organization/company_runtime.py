@@ -967,7 +967,7 @@ class CompanyRuntime:
                         },
                     )
                 except Exception:
-                    logger.debug("company runtime resume reset: role session persist failed", exc_info=True)
+                    logger.opt(exception=True).debug("company runtime resume reset: role session persist failed")
 
     def _role_session_id(self, task: Task, *, role_id: str) -> str:
         explicit = str((task.metadata or {}).get("delegation_role_session_id", "") or "").strip()

@@ -429,10 +429,9 @@ class ExternalAgentBroker:
                     role_session_id, adapter.agent_type
                 )
             except Exception:
-                logger.debug(
+                logger.opt(exception=True).debug(
                     f"PR6 role adapter-state read failed "
                     f"sid={role_session_id} agent={adapter.agent_type}",
-                    exc_info=True,
                 )
                 entry = None
             if isinstance(entry, dict):
@@ -452,9 +451,8 @@ class ExternalAgentBroker:
                         opc_session_id=role_session_id,
                     )
                 except Exception:
-                    logger.debug(
+                    logger.opt(exception=True).debug(
                         f"External resume restore: get_external_session by role failed for {adapter.agent_type}/{role_session_id}",
-                        exc_info=True,
                     )
                     prior = None
             if prior is None:
@@ -465,9 +463,8 @@ class ExternalAgentBroker:
                         task_id=task.id,
                     )
                 except Exception:
-                    logger.debug(
+                    logger.opt(exception=True).debug(
                         f"External resume restore: get_external_session failed for {adapter.agent_type}/{task.id}",
-                        exc_info=True,
                     )
                     return
             if prior is None:
@@ -1387,7 +1384,7 @@ class ExternalAgentBroker:
             )
             return str(path)
         except Exception:
-            logger.debug("ExternalAgentBroker: failed to write raw external log", exc_info=True)
+            logger.opt(exception=True).debug("ExternalAgentBroker: failed to write raw external log")
             return ""
 
     def _enrich_structured_result_artifacts(
@@ -2231,8 +2228,7 @@ class ExternalAgentBroker:
                         token_record,
                     )
                 except Exception:
-                    logger.debug(
+                    logger.opt(exception=True).debug(
                         f"PR6 role adapter-state write failed "
                         f"sid={role_session_id} agent={adapter.agent_type}",
-                        exc_info=True,
                     )

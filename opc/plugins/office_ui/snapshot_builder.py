@@ -2630,7 +2630,7 @@ async def _build_company_runtime_control_by_task(
                 if sid and sid not in checkpoints_by_session:
                     checkpoints_by_session[sid] = checkpoint
         except Exception:
-            logger.debug("snapshot: failed to load company runtime checkpoints", exc_info=True)
+            logger.opt(exception=True).debug("snapshot: failed to load company runtime checkpoints")
 
     result: dict[str, dict[str, Any]] = {}
     for parent_session_id, group in tasks_by_parent_session.items():
@@ -2892,7 +2892,7 @@ async def build_project_index_sync(
         try:
             tasks = await engine.store.get_tasks(project_id=project_id)
         except Exception:
-            logger.warning("Failed to load tasks for project index", exc_info=True)
+            logger.opt(exception=True).warning("Failed to load tasks for project index")
 
     existing_task_ids = {
         str(getattr(task, "id", "") or "").strip()
@@ -3286,7 +3286,7 @@ async def build_collab_sync(
                 event_adapter=event_adapter,
             )
         except Exception:
-            logger.warning("Failed to build company-mode kanban projection", exc_info=True)
+            logger.opt(exception=True).warning("Failed to build company-mode kanban projection")
     # Per-session DelegationWorkItem rollups produced alongside the company
     # kanban projection. Used by the work-item-driven Execution Progress
     # panel — keyed by ``task.session_id`` (matches the formatted_sessions
@@ -3308,7 +3308,7 @@ async def build_collab_sync(
         if backfilled:
             logger.info(f"Reconciled {backfilled} total messages from engine → ChatStore")
     except Exception:
-        logger.warning("Session reconciliation failed (non-fatal)", exc_info=True)
+        logger.opt(exception=True).warning("Session reconciliation failed (non-fatal)")
 
     existing_task_ids = {
         str(getattr(task, "id", "") or "").strip()

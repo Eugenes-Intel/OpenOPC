@@ -267,7 +267,7 @@ class SessionService:
             try:
                 await store.save_task(task)
             except Exception:
-                logger.debug("failed to mark company runtime stop state", exc_info=True)
+                logger.opt(exception=True).debug("failed to mark company runtime stop state")
 
     async def _clear_company_runtime_stop_state(self, *, engine: Any, task_ids: list[str]) -> None:
         store = getattr(engine, "store", None)
@@ -297,7 +297,7 @@ class SessionService:
             try:
                 await store.save_task(task)
             except Exception:
-                logger.debug("failed to clear company runtime stop state", exc_info=True)
+                logger.opt(exception=True).debug("failed to clear company runtime stop state")
 
     def _normalize_requested_config(
         self,
@@ -445,7 +445,7 @@ class SessionService:
                 )
                 events.append(ServiceEvent("collab_sync_push", collab))
             except Exception:
-                logger.warning("create_session collab_sync build failed", exc_info=True)
+                logger.opt(exception=True).warning("create_session collab_sync build failed")
         return ServiceResult(session_payload, events)
 
     def _session_metadata(
@@ -606,7 +606,7 @@ class SessionService:
                 if int(message_count or 0) > 0:
                     return "message_history"
             except Exception:
-                logger.debug("Failed to inspect session message count for config lock", exc_info=True)
+                logger.opt(exception=True).debug("Failed to inspect session message count for config lock")
         status = getattr(getattr(task, "status", None), "value", getattr(task, "status", None))
         status_value = str(status or "").strip().lower()
         if status_value and status_value != "pending":
@@ -958,7 +958,7 @@ class SessionService:
                         stop_intent_id=stop_intent_id,
                     )
                 except Exception:
-                    logger.warning("suspend_company_runtime failed during service stop", exc_info=True)
+                    logger.opt(exception=True).warning("suspend_company_runtime failed during service stop")
             if suspended is not None:
                 for candidate in list(suspended.get("task_ids", []) or []):
                     candidate_id = str(candidate or "").strip()
@@ -1000,7 +1000,7 @@ class SessionService:
                         },
                     )
                 except Exception:
-                    logger.debug("failed to insert company runtime stop system message", exc_info=True)
+                    logger.opt(exception=True).debug("failed to insert company runtime stop system message")
             payload = {
                 **default_payload,
                 "status": "suspended",

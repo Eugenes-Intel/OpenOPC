@@ -157,7 +157,16 @@ class ToolRegistry:
             result = await tool.func(**call_args)
             output = {"result": result, "success": True}
         except Exception as e:
-            logger.error(f"Tool {name} failed ({type(e).__name__}): {e}", exc_info=True)
+            # Loguru has no stdlib-style ``exc_info`` kwarg: extra kwargs are
+            # format() arguments, which forces str.format() on the message — an
+            # error message containing ``{...}`` (e.g. a JSON error body) then
+            # raises KeyError FROM the logging call, escaping this handler and
+            # killing the caller instead of returning the error output below.
+            # Positional formatting keeps brace-containing values inert, and
+            # opt(exception=True) is the loguru way to log the traceback.
+            logger.opt(exception=True).error(
+                "Tool {} failed ({}): {}", name, type(e).__name__, e
+            )
             output = {
                 "error": str(e),
                 "traceback": traceback.format_exc(),

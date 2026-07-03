@@ -786,4 +786,5 @@ OpenOPC is built with gratitude for several open-source projects that helped sha
 - [BloopAI/vibe-kanban](https://github.com/BloopAI/vibe-kanban) for inspiration around kanban-centered agent work management and task visibility.
 - [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) for the talent-template foundation. All talent templates included in this repository are imported from `agency-agents`.
 - [HKUDS/nanobot](https://github.com/HKUDS/nanobot) for inspiration around skill-oriented agent design and `SKILL.md`-style organization.
+- [pixel-agents-hq/pixel-agents](https://github.com/pixel-agents-hq/pixel-agents) for inspiration around the animated pixel-art office visualization of agent activity.
 

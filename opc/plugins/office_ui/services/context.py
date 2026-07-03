@@ -174,7 +174,7 @@ class OfficeServiceContext:
             try:
                 wire(engine)
             except Exception:
-                logger.debug("Failed to wire service project engine callbacks", exc_info=True)
+                logger.opt(exception=True).debug("Failed to wire service project engine callbacks")
         return engine
 
     async def activate_project(self, project_id: str) -> Any:
