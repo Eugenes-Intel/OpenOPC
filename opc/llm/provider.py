@@ -82,6 +82,12 @@ def _normalized_model_name(model: str) -> str:
     return model.strip().lower()
 
 
+# Used when neither user config nor litellm can supply a window. Conservative
+# enough for modern models so compaction still has a real denominator.
+_CONTEXT_WINDOW_FALLBACK = 128_000
+_context_window_fallback_warned: set[str] = set()
+
+
 _CONTEXT_WINDOW_OVERRIDES: tuple[tuple[str, int], ...] = (
     ("gpt-5.4-pro", 1_050_000),
     ("gpt-5.4-mini", 400_000),
@@ -269,11 +275,27 @@ class LLMProvider:
         if override is not None:
             return override
         try:
-            limit = litellm.get_max_tokens(resolved_model)
-            return int(limit) if limit else None
+            # max_input_tokens is the context window; litellm.get_max_tokens()
+            # returns the "max_tokens" map entry, which for many models (e.g.
+            # deepseek) is the OUTPUT cap and would wildly under-report here.
+            info = litellm.get_model_info(resolved_model)
+            limit = info.get("max_input_tokens") or info.get("max_tokens")
+            if limit:
+                return int(limit)
+            reason = "model is not mapped in litellm"
         except Exception as e:
-            logger.warning(f"Unable to resolve context window for model={resolved_model}: {e}")
-            return None
+            reason = str(e)
+        if resolved_model not in _context_window_fallback_warned:
+            _context_window_fallback_warned.add(resolved_model)
+            logger.warning(
+                "Unable to resolve context window for model={} ({}); assuming {} tokens. "
+                "Set llm.context_window or llm.context_window_overrides in llm_config.yaml "
+                "to use the model's real window.",
+                resolved_model,
+                reason,
+                _CONTEXT_WINDOW_FALLBACK,
+            )
+        return _CONTEXT_WINDOW_FALLBACK
 
     def count_input_tokens(
         self,

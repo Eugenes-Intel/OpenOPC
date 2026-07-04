@@ -554,24 +554,25 @@ Run `opc init` once from the repo root. It creates `.opc/`, copies the template 
 
 After `opc init`, edit `.opc/config/llm_config.yaml` in the repo-local OPC home. If you set `OPC_HOME`, edit `$OPC_HOME/config/llm_config.yaml` instead.
 
-The template leaves secrets empty. Configure either a literal key or an env var:
+The template leaves secrets empty. Write your key directly into the file:
 
 ```yaml
 llm:
   default_model: "openai/gpt-5.4"
   api_base: "https://openrouter.ai/api/v1"
-  api_key: ""
-  api_key_env: "OPENROUTER_API_KEY"
+  api_key: "sk-or-v1-..."   # your OpenRouter (or other provider) API key
+
+  max_tokens: 32768         # max output tokens per request; lower it if your
+                            # model's output cap is smaller
+  # context_window: 128000  # total input window. Usually auto-detected via
+                            # litellm; unmapped models fall back to 128000.
+                            # Uncomment and set only when the fallback is
+                            # wrong for your model.
 ```
 
-Then:
+Then verify with `opc status`.
 
-```bash
-export OPENROUTER_API_KEY="..."
-opc status
-```
-
-You can also use provider-specific env vars such as `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` if your model/provider configuration expects them.
+If you prefer not to store the key in the file, leave `api_key` empty and set `api_key_env` to the name of an environment variable that holds it (e.g. `api_key_env: "OPENROUTER_API_KEY"`).
 
 ### External Agents
 

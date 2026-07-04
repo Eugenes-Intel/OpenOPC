@@ -11,11 +11,11 @@ llm:
   fallback: {}
 
   # Optional: total input context window, used as the denominator for the
-  # context-usage ring and to trigger auto-summarization. You normally do NOT
-  # need this — for models litellm can map (most OpenAI / Anthropic models) the
-  # window is resolved automatically. Only set it when your model is served
-  # through a proxy / self-hosted endpoint that litellm cannot map, so the ring
-  # has no denominator. Scalar applies to the default model:
+  # context-usage ring and to trigger auto-summarization. Auto-detected via
+  # litellm for most OpenAI / Anthropic models; models litellm cannot map
+  # (e.g. deepseek/doubao/glm or proxy / self-hosted endpoints) fall back to
+  # 128000. Set this only when the fallback is wrong for your model.
+  # Scalar applies to the default model:
   # context_window: 200000
   # Or per-model (wins over the scalar); keys are matched by model name:
   # context_window_overrides:

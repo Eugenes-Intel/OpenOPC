@@ -272,12 +272,13 @@ class LLMConfig(BaseModel):
     routing: dict[str, str] = Field(default_factory=dict)
     fallback: dict[str, Any] = Field(default_factory=dict)
     temperature: float = 0.3
-    max_tokens: int = 8192
+    max_tokens: int = 32768
     # Total input context window (tokens) for the active model. Set this when
     # the model is not mapped in litellm (e.g. proxy/self-hosted models like
     # doubao/minimax/glm), so the context-usage ring and compaction thresholds
-    # have a real denominator. 0 = auto-detect via litellm. Optional per-model
-    # overrides keyed by model name take precedence over the scalar value.
+    # have a real denominator. 0 = auto-detect via litellm; unmapped models
+    # fall back to 128000. Optional per-model overrides keyed by model name
+    # take precedence over the scalar value.
     context_window: int = 0
     context_window_overrides: dict[str, int] = Field(default_factory=dict)
 
