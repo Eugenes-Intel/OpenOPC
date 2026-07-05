@@ -808,3 +808,10 @@ OpenOPC is built with gratitude for several open-source projects that helped sha
 - [HKUDS/nanobot](https://github.com/HKUDS/nanobot) for inspiration around skill-oriented agent design and `SKILL.md`-style organization.
 - [pixel-agents-hq/pixel-agents](https://github.com/pixel-agents-hq/pixel-agents) for inspiration around the animated pixel-art office visualization of agent activity.
 
+---
+
+<p align="center">
+  <em> ❤️ Thanks for visiting ✨ OpenOPC!</em><br><br>
+  <img src="https://visitor-badge.laobi.icu/badge?page_id=HKUDS.OpenOPC&style=for-the-badge&color=00d4ff"
+  alt="Views">
+</p>
