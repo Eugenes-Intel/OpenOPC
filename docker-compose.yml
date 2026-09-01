@@ -1,0 +1,81 @@
+services:
+  openopc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        INSTALL_PLAYWRIGHT: "true"
+        INSTALL_CLAUDE_CODE: "true"
+        INSTALL_CODEX: "true"
+        # Cursor / OpenCode off by default: this setup only wires Claude Code
+        # and Codex subscription logins. Flip to "true" (and mount their
+        # config dirs) if you want them.
+        INSTALL_CURSOR_AGENT: "false"
+        INSTALL_OPENCODE: "false"
+    image: rootsware/openopc:latest
+    ports:
+      - "8765:8765"
+    environment:
+      # --- LLM (required) ---
+      OPC_LLM_API_KEY: "${OPC_LLM_API_KEY:-}"
+      OPC_LLM_MODEL: "${OPC_LLM_MODEL:-openai/gpt-5.4}"
+      OPC_LLM_API_BASE: "${OPC_LLM_API_BASE:-https://openrouter.ai/api/v1}"
+
+      # --- GitHub: lets agents (and `docker exec ... gh`/`git push`) push
+      # straight to GitHub. Create a token at https://github.com/settings/tokens
+      # (repo scope is enough). ---
+      GH_TOKEN: "${GH_TOKEN:-}"
+      GIT_AUTHOR_NAME: "${GIT_AUTHOR_NAME:-}"
+      GIT_AUTHOR_EMAIL: "${GIT_AUTHOR_EMAIL:-}"
+
+      # --- Claude Code + Codex authenticate from your PC's SUBSCRIPTION
+      # logins, not API keys. Those logins live in ~/.claude and ~/.codex on
+      # this machine and are bind-mounted into the container (see volumes
+      # below), so nothing needs to be set here. Do NOT add ANTHROPIC_API_KEY
+      # or OPENAI_API_KEY — if present they override the subscription login
+      # and switch the CLI to metered API billing. OPC_LLM_API_KEY above is
+      # separate: it only feeds OpenOPC's own "Native" agent. ---
+
+      # --- Email (optional): lets the org email you progress and lets you
+      # email tasks back to it. Needs both IMAP and SMTP creds for the same
+      # mailbox (e.g. a Gmail address with a 16-char "app password", not your
+      # normal login password: https://myaccount.google.com/apppasswords).
+      # Leave OPC_EMAIL_ENABLED unset/false to skip this entirely. ---
+      OPC_EMAIL_ENABLED: "${OPC_EMAIL_ENABLED:-false}"
+      OPC_EMAIL_CONSENT: "${OPC_EMAIL_CONSENT:-false}"
+      OPC_EMAIL_IMAP_HOST: "${OPC_EMAIL_IMAP_HOST:-}"
+      OPC_EMAIL_IMAP_USERNAME: "${OPC_EMAIL_IMAP_USERNAME:-}"
+      OPC_EMAIL_IMAP_PASSWORD: "${OPC_EMAIL_IMAP_PASSWORD:-}"
+      OPC_EMAIL_SMTP_HOST: "${OPC_EMAIL_SMTP_HOST:-}"
+      OPC_EMAIL_SMTP_USERNAME: "${OPC_EMAIL_SMTP_USERNAME:-}"
+      OPC_EMAIL_SMTP_PASSWORD: "${OPC_EMAIL_SMTP_PASSWORD:-}"
+      OPC_EMAIL_FROM_ADDRESS: "${OPC_EMAIL_FROM_ADDRESS:-}"
+      OPC_EMAIL_ALLOW_FROM: "${OPC_EMAIL_ALLOW_FROM:-}"
+    volumes:
+      # Bind mounts (not named volumes) so the container shares the SAME
+      # state as this machine's local OpenOPC install — same memories,
+      # skills, projects, sessions, kanban and Office-UI history.
+      #
+      # IMPORTANT: never run local `opc ui` / `opc chat` and this container
+      # at the same time — they'd both open .opc/global.db and
+      # .opc/ui_state.db. And don't resume a session created on the other OS:
+      # stored workspace paths (E:\...\ vs /app_workplace/...) won't resolve.
+      - ./.opc:/app/.opc
+
+      # Same deliverables workplace the local install writes to
+      # (repo-parent/OpenOPC_workplace/<project>).
+      - ../OpenOPC_workplace:/app_workplace
+
+      # Claude Code + Codex SUBSCRIPTION logins, reused from this PC. Claude
+      # Code reads /root/.claude/.credentials.json; Codex reads
+      # /root/.codex/auth.json. Token refresh writes back to these same host
+      # dirs. If your Windows profile isn't at %USERPROFILE%, set CLAUDE_DIR /
+      # CODEX_DIR in .env to absolute paths and swap them in below.
+      - ${CLAUDE_DIR:-${USERPROFILE}/.claude}:/root/.claude
+      - ${CODEX_DIR:-${USERPROFILE}/.codex}:/root/.codex
+
+      # Optional: mount your own SSH key read-only instead of using GH_TOKEN,
+      # if you'd rather authenticate git over SSH. Uncomment and adjust the
+      # path (Windows: something like ${USERPROFILE}/.ssh).
+      # - ${HOME}/.ssh:/root/.ssh:ro
+    restart: unless-stopped
